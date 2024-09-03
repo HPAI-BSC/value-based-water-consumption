@@ -1,0 +1,12 @@
+{
+    "cluster": "mn4",
+    "binary": "env JAVA_HOME= RESULTS_PATH=/gpfs/projects/bsc70/hpai/storage/data/water/results/${CI_COMMIT_SHORT_SHA}/ /bin/bash",
+    "command": "/code/script.sh",
+    "ntasks": 1,
+    "cpus-per-task": 48,
+    "tasks-per-node": 1,
+    "qos": "debug",
+    "time": "01:00:00",
+    "singularity_version": "3.7.3",
+    "highmem": true
+}

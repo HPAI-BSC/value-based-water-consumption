@@ -1,0 +1,192 @@
+; ******************* SIMULATION SETUP
+; ******************* Main setup function: load; auxiliary functions: load-households, also define-consumptions (initial weekly consumption).
+to load
+  clear-all
+  reset-ticks
+  ; RNG management
+  if gen-seed [set seed-value new-seed]
+  random-seed seed-value
+
+  if path-to-results = "" [ set path-to-results "./results"]
+  
+  set weekly-season (list "winter")
+  ask patches [set pcolor white]
+
+  set current-date time:anchor-to-ticks (time:create "2015/01/01") 1 "day"
+  set profiles (list "ERC" "ECR" "CRE" "CER" "REC" "RCE")
+  load-households
+  ;consumptions for each use are intialized
+  ask households [
+    ;                     ---shower---dishwasher---washingmachine---toilet---faucet---garden---swimmingpool
+    set base-consumptions [      72           15              100        6       12 ];  60/200         360
+    ;                     ---6/week-----members/week-----members/week----6/day---10/day---1/day-------1/day
+    set daily-consumptions []
+  ]
+  define-consumptions
+end
+
+to-report value-order-to-color [order]
+  let colors (list (green - 2) (green + 3) (red - 2) (red + 3) (magenta - 2) (magenta + 3))
+  report (item (position order profiles) colors)
+end
+
+to-report value-order-to-shape [order]
+  let shps (list "circle" "circle" "square" "square" "triangle" "triangle")
+  report (item (position order profiles) shps)
+end
+
+to load-households
+ ;agents are created
+  create-households amount-households [
+    set shape "house"
+    setxy (random-xcor * 0.95) (random-ycor * 0.95)
+
+    ; Initialising stuff for values paper
+    set contexts []
+
+    set weekly-shifts []
+    set weekly-water-consumed []
+    set weekly-num-visitors []
+    set weekly-actual-values []
+    set weekly-long-showers-micro []
+    set weekly-short-showers-micro []
+    set weekly-shower-units []
+    set weekly-town-context []
+    
+    ; individuals
+    set members-importances []
+    set members-actual-value-orders []
+    set members-value-orders []
+    
+    set members-efforts []
+    set members-actual-importances []
+    set members-shifted []
+    
+    set weekly-actual-values-visitors []
+    set weekly-actual-importances []
+    set weekly-visitors-context []
+    set weekly-efforts []
+  ]
+  let colors []
+  
+  ask n-of (count households * 0.30) households with [members = 0][set members 1]
+  ask n-of (count households * 0.29) households with [members = 0][set members 2]
+  ask n-of (count households * 0.22) households with [members = 0][set members 3]
+  ask n-of (count households * 0.19) households with [members = 0][set members 4]
+  ask households with [members = 0][set members one-of (list 1 2 3 4)] ; assign members to any remaining household
+  
+  set colors (list (green - 2) (green + 3) (red - 2) (red + 3) (magenta - 2) (magenta + 3))
+  let shps (list "circle" "circle" "square" "square" "triangle" "triangle")
+  (ifelse version = "household" [
+    ; Setting up value order and value importances
+    foreach profiles [profile -> ask n-of ((1 / (length profiles)) * count households) households with [value-order = 0][set value-order profile]]
+    ask households with [value-order = 0][set value-order one-of profiles] ; randomly assign a value order to any remaining household
+    ask households [
+      set color (value-order-to-color value-order)
+      set shape (value-order-to-shape value-order)
+      set importances (generate-importances value-order)
+      if debug [print((word value-order " " importances))]]
+    ]
+    version = "individual" [
+      ; Setting up value order and value importances for each member in the household
+      foreach profiles [profile -> ask n-of ((1 / (length profiles)) * count households) households with [value-order = 0][set value-order profile]]
+      ask households with [value-order = 0][set value-order one-of profiles] ; randomly assign a value order to any remaining household
+      
+      ; Creating individuals according households' members
+      ask households [
+        set color (value-order-to-color value-order)
+        set shape (value-order-to-shape value-order)
+        repeat members [set members-value-orders (lput one-of profiles members-value-orders)]
+        let idx 0
+        while [idx < members] [
+          set members-importances (lput (generate-importances (item idx members-value-orders)) members-importances )
+          set idx (idx + 1)]
+      ]
+    ]
+    version = "first-prototype" [
+      set colors (list red green)
+      set profiles (list "C" "E")
+      set shps (list "house" "house")
+      ask n-of (count households * 0.5) households with [value-order = 0] [set value-order "C"]
+      ask households with [value-order = 0][set value-order "E"] ; assign value-order to reamining households
+      (foreach profiles colors [[profile col] -> ask households with [value-order = profile][set color col ]])
+      (foreach profiles shps [[profile shp] -> ask households with [value-order = profile][set shape shp]])
+  ])
+  ask households [set size 3]
+  ; Setting up town  
+  ask n-of (count households * 0.5) households with [town = 0] [set town 1]
+  ask households with [town = 0][set town 2] ; assign town to remaining households
+end
+
+to-report generate-importances [value-ordering] ; value order is a string composed of three letters; to be used by households when creating them
+  let Vi random 50
+  let Vj 0
+  let Vk 0
+  let aux (max (list 0 (Vi - 20)))
+  ; To generate a random number between a given range (min, max): min + random(max - min); aux is used as min. (condition 1 for E and R; they have to be at max distance of 20)
+  ; Notice (min (list Vx 1)); it is used to add 1 more to include the number. When Vx is 0, we should not add 1 to preserve value order (condition 3).
+  (ifelse last value-ordering = "C" [ ; ERC/REC
+    set Vj (random (Vi - aux + (min (list Vi 1)))) + aux
+    set Vk (random Vj + (min (list Vj 1)))
+    ]
+    first value-ordering = "C" [ ; CER/CRE
+      set Vj (random Vi + (min (list Vi 1)))
+      set aux (max (list 0 (Vj - 20)))
+      set Vk (random (Vj - aux + (min (list Vj 1)))) + aux
+    ]
+    ; ECR/RCE
+    [ set Vj (random (Vi - aux + (min (list Vi 1)))) + aux
+      set Vk (random (Vj - aux + (min (list Vj 1)))) + aux
+  ])
+  ; condition 2
+  set Vi (Vi + 51)
+  set Vj (Vj + 51)
+  set Vk (Vk + 51)
+  report (list Vi Vj Vk)
+end
+
+
+; We keep this just in case we want to do something with density and income level in the future. Distributions and figures are based on real data.
+to set-density-income
+  ;household density (+owning a pool) is assigned
+  ask n-of (count households * 0.52) households with [density = 0] [set density "high density"     set size 0.8]
+  ask n-of (count households * 0.30) households with [density = 0] [set density "medium density"   set size 1.2]
+  ask n-of (count households * 0.18) households with [density = 0] [set density "low density"      set size 1.5]
+  ; assign density to any remaining household
+  ask households with [density = 0][set density one-of (list "high density" "medium density" "low density")] ; <----we are not setting size for any agent that gets here.
+  ask n-of (0.5 * count households with [density = "low density"]) households with [density = "low density"] [set own-swimming-pool true]
+  ;number of members is assigned
+  ;per-capita income is distributed
+  ;firstly, income type is assigned
+  ask n-of round (count households * 0.204) households with [income-type = 0 and density = "high density"][set income-type  "low"]
+  ask n-of round (count households * 0.167) households with [income-type = 0 and density =  "low density"][set income-type "high"]
+  ask households with [income-type = 0][set income-type "medium"]
+  ;secondly, based on the income type, an income value is assigned accordingly
+  ask households [
+    (ifelse
+      income-type = "low" and members = 1 [set income  (450 + (938 - 450) / 2) + random ((938 -  450) / 2)]
+      income-type = "low" and members > 1 [set income  450 + random ((938 -  450) / 2)]
+      income-type = "high" [set income 2025 + random (5000 - 2025)]
+      income-type = "medium" and density = "medium density" [set income 938 + random (2025 - 938)]
+      income-type = "medium" and density =   "high density" [set income 938 + random ((2025 - 938) / 2)]
+      income-type = "medium" and density =    "low density" [set income (938 + (2025 - 938) / 2) + random ((2025 - 938) / 2)]
+    )
+  ]
+  ; We are not currently using social network, so we disable it for the time being.
+  ; social network is generated
+  ;  (foreach (list "high density" "medium density" "low density")(list 8 6 4) [[dens neigh] ->
+  ;    ask households with [density = dens][
+  ;      let lonely (households with [density = dens and count my-links < neigh])
+  ;      set lonely (other lonely)
+  ;      let new-links (neigh - count my-links)
+  ;      if new-links > 0 [
+  ;        let chosen n-of min (list new-links count lonely) lonely
+  ;        create-links-with chosen
+  ;        ask chosen [if count my-links = 8 [set lonely other lonely]]
+  ;      ]
+  ;    ]
+  ;    ]
+  ;  )
+  ;  ask links [hide-link]
+end
+

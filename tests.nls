@@ -1,0 +1,42 @@
+to test []
+  clear-all
+  reset-ticks
+  ; RNG management
+  if gen-seed [set seed-value new-seed]
+  random-seed seed-value
+  
+  set amount-households 1
+  load
+  load-households
+  
+  ask households [set value-order test-value-order
+    set importances (list test-vi test-vj test-vk)]
+  ask households[print (word value-order " " importances)]
+  
+  (ifelse
+    test-function = "compute-effort" [ask households [print (word value-order " -> " target-test-value-order " " compute-change-effort  value-order target-test-value-order importances)]]
+    test-function = "bernoul" [print (count-resultados (binom-bernoulli 1000 0.3))]
+    test-function = "logist" []
+    test-function = "binom" []
+    test-function = "should-shower" [
+    ]
+    test-function = "how-many-visitors" []
+    [])
+end
+
+to-report binom-bernoulli [n p]
+  let results []
+  repeat n [set results lput (bernoulli p) results]
+  report results
+end
+
+
+to-report frequency [an-item a-list]
+    report length (filter [i -> i = an-item] a-list)
+end
+
+to-report count-resultados [res]
+  report (list (frequency true res) (frequency false res))
+end
+
+

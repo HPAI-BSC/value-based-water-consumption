@@ -1,0 +1,81 @@
+; Contains auxiliary functions to plot results in GUI and output data into CSV
+extensions [csv]
+
+
+; ******************* DATA OUTPUT
+; ******************* plot-consumption (for GUI), save-results (outputs results as a CSV)
+to plot-consumption
+  set-current-plot "Consumption evolution"
+  set-plot-background-color black
+  set-plot-x-range (1) (365)
+  let total-daily-consumption sum [(item (time:get "dayofweek" current-date - 1) weekly-consumptions)] of households
+  set daily-consumptions (lput total-daily-consumption daily-consumptions)
+  set-current-plot-pen "m3/day" plotxy (time:get "dayofyear" current-date) ( total-daily-consumption / 1000)
+  set-plot-pen-color blue
+end
+
+to-report create-filename[base]
+  let filename base
+  set filename (word filename "|" seed-value ").csv")
+  report filename
+end
+
+to save-values-paper-results
+  let aux-week (range 1 54)
+  let data-to-save []
+  let titles []
+  (ifelse 
+    version = "first-prototype" [set titles (list "agent" "week" "members" "visitors" "shifted" "behaviour" "actual-values" "original-values" "consumption" "consumption_per_capita" "amount_long_showers_micro")]
+    version = "household" [set titles (list "household" "week" "season" "weekly-consumption" "weekly-consumption-per-capita" "members" "original-values" "Vi" "Vj" "Vk" 
+       "visitors" "visitors-context" "town-id" "town-context" "shifted" "effort" "visitor-shifted" "town-shifted" "actual-values" "actVi" "actVj" "actVk" "effort-threshold" "sporty-probability" 
+      "amount-long-showers-micro" "amount-short-showers-micro" "shower-units" "seed-value")]
+    version = "individual" [set titles (list "agent" "week" "season" "weekly-consumption" "original-values" "Vi" "Vj" "Vk"  
+       "visitors" "visitors-context" "town-id" "town-context" "shifted" "effort" "visitor-shifted" "town-shifted" "actual-values" "actVi" "actVj" "actVk" "effort-threshold" "sporty-probability" 
+      "amount-long-showers-micro" "amount-short-showers-micro" "shower-units" "seed-value")])
+
+  set data-to-save lput titles data-to-save
+  
+  ask households [
+    (ifelse 
+      version = "first-prototype" 
+      [(foreach  aux-week weekly-shifts weekly-water-consumed weekly-num-visitors weekly-actual-values weekly-long-showers-micro [[week shift water-consumed amount-visitors actual-values long-showers-micro] ->
+        set data-to-save lput (list (word "household " who) week members amount-visitors shift behaviour actual-values value-order water-consumed (water-consumed / (members + amount-visitors)) long-showers-micro) data-to-save])]
+      version = "household" [
+        (foreach aux-week weekly-season weekly-water-consumed weekly-num-visitors weekly-shifts weekly-actual-values weekly-actual-importances weekly-long-showers-micro weekly-short-showers-micro weekly-shower-units weekly-town-context weekly-visitors-context
+          weekly-efforts 
+          [[week seasn water-consumed amount-visitors shift actual-values act-importances long-showers-micro short-showers-micro shower-units town-ctxt visitors-ctxt effort] ->
+            let visitor-shift (actual-values = visitors-ctxt and actual-values != value-order) ; We have changed context to visitors which is different than ours
+            let town-shift (actual-values = town-ctxt and actual-values != value-order and town-ctxt != visitors-ctxt) ; We have changed to town context, which is different than ours and from any visitors
+            set data-to-save lput (list (word "household " who) week seasn water-consumed (water-consumed / (members + amount-visitors)) members value-order (item 0 importances) (item 1 importances) (item 2 importances) amount-visitors visitors-ctxt
+              town town-ctxt shift effort visitor-shift town-shift actual-values (item 0 act-importances) (item 1 act-importances) (item 2 act-importances) effort-threshold sporty-probability long-showers-micro short-showers-micro shower-units seed-value) data-to-save])
+      ]
+      version = "individual" [
+        (foreach aux-week weekly-season weekly-water-consumed weekly-num-visitors weekly-shifts weekly-actual-values weekly-actual-importances weekly-long-showers-micro weekly-short-showers-micro weekly-shower-units weekly-town-context weekly-visitors-context
+          weekly-efforts
+          [[week seasn water-consumed amount-visitors shift act-values act-importances long-showers short-showers showers town-ctxt visitors-ctxt efforts] ->
+            let idx-members 0
+            while [idx-members < members][
+              let current-value-order (item idx-members members-value-orders )
+              let current-importances (item idx-members members-importances)
+              let current-actual-value-orders (item idx-members act-values)
+              let current-actual-importances (item idx-members act-importances)
+              let current-shift (item idx-members shift)
+              let current-shower-units (item idx-members showers)
+              let current-long-showers-micro (item idx-members long-showers)
+              let current-short-showers-micro (item idx-members short-showers)
+              let current-water-consumed (item idx-members water-consumed)
+              let current-effort (item idx-members efforts)
+              let current-visitor-shifted (current-actual-value-orders = visitors-ctxt and current-actual-value-orders != current-value-order) ; We have changed context to visitors which is different than ours
+              let current-town-shifted (current-actual-value-orders = town-ctxt and current-actual-value-orders != current-value-order and town-ctxt != visitors-ctxt) ; We have changed to town context, which is different than ours and from any visitors
+              set idx-members (idx-members + 1)  
+              set data-to-save (lput (list 
+                (word "household " who "-" idx-members) week seasn current-water-consumed current-value-order (item 0 current-importances) (item 1 current-importances) (item 2 current-importances) amount-visitors visitors-ctxt town town-ctxt current-shift current-effort current-visitor-shifted current-town-shifted
+                current-actual-value-orders (item 0 current-actual-importances) (item 1 current-actual-importances) (item 2 current-actual-importances) effort-threshold sporty-probability current-long-showers-micro current-short-showers-micro current-shower-units seed-value) data-to-save)
+            ]
+          ]
+        )
+      ]
+    )
+  ]
+  csv:to-file create-filename((word path-to-results "/weekly/weekly (" toggle_visitors "|" toggle_town_context "|" version "|" limit-visitors-week)) data-to-save
+end

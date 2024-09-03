@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE experiments SYSTEM "behaviorspace.dtd">
+<experiments>
+    <experiment name="experiment" repetitions="1" runMetricsEveryStep="true">
+        <setup>load</setup>
+        <go>go</go>
+        <enumeratedValueSet variable="amount-households">
+            <value value="524"/>
+            <value value="1048"/>
+            <value value="2096"/>
+            <value value="10000"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="save_results">
+            <value value="true"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="threshold-multiplier">
+            <value value="0.1"/>
+            <value value="0.5"/>
+            <value value="1"/>
+            <value value="1.5"/>
+            <value value="2"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="Kind_of_tariff">
+            <value value="&quot;Generic blocks&quot;"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="path-to-results">
+            <value value="&quot;./results&quot;"/>
+        </enumeratedValueSet>
+        <steppedValueSet variable="block-multipl" first="0.1" step="0.2" last="2"/>
+        <steppedValueSet variable="volume-block" first="1" step="1" last="12"/>
+        <enumeratedValueSet variable="gen-seed">
+            <value value="true"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="seed-value">
+            <value value="1"/>
+        </enumeratedValueSet>
+    </experiment>
+    <experiment name="test" repetitions="1" runMetricsEveryStep="true">
+        <setup>load</setup>
+        <go>go</go>
+        <enumeratedValueSet variable="amount-households">
+            <value value="500"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="save_results">
+            <value value="true"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="threshold-multiplier">
+            <value value="2"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="Kind_of_tariff">
+            <value value="&quot;Generic blocks&quot;"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="path-to-results">
+            <value value="&quot;./results&quot;"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="block-multipl">
+            <value value="1.9"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="volume-block">
+            <value value="8"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="gen-seed">
+            <value value="false"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="seed-value">
+            <value value="1"/>
+        </enumeratedValueSet>
+    </experiment>
+    <experiment name="poc" repetitions="1" runMetricsEveryStep="true">
+        <setup>load</setup>
+        <go>go</go>
+        <enumeratedValueSet variable="amount-households">
+            <value value="524"/>
+            <value value="1048"/>
+            <value value="2096"/>
+            <value value="10000"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="save_results">
+            <value value="true"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="threshold-multiplier">
+            <value value="0.1"/>
+            <value value="0.5"/>
+            <value value="1"/>
+            <value value="1.5"/>
+            <value value="2"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="path-to-results">
+            <value value="&quot;./results&quot;"/>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="Kind_of_tariff">
+            <value value="&quot;Generic blocks&quot;"/>
+        </enumeratedValueSet>
+        <steppedValueSet variable="block-multipl" first="0.1" step="0.2" last="2"/>
+        <steppedValueSet variable="volume-block" first="1" step="1" last="12"/>
+    </experiment>
+</experiments>

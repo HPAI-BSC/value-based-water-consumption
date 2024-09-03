@@ -1,0 +1,157 @@
+to aplicar-canvis
+  ask habitatges with [voluntat-canvis = true and valors = "client"][
+    if recompte-setmanes >= 3 and member? 1 canvis-pràctiques [abandonament-de-pràctiques]
+    (ifelse
+      length filter [i -> i = 1] canvis-dispositius < 5 and length filter [i -> i = 1] canvis-pràctiques < 4 [
+        let probabilitats [["D" 65]["P" 35]]
+        let acció first rnd:weighted-one-of-list probabilitats [ [p] -> last p ]
+        if acció = "D" [canvi-de-dispositius]
+        if acció = "P" [canvi-de-pràctiques]
+      ]
+      length filter [i -> i = 1] canvis-dispositius = 5 [canvi-de-pràctiques]
+      length filter [i -> i = 1] canvis-pràctiques = 4 [canvi-de-dispositius]
+    )
+    if voluntat-c-horaris = true [canvi-horaris]
+  ]
+  
+  ask habitatges with [voluntat-canvis = true and valors = "tecno-optimista"][
+    canvi-de-dispositius
+    if ( (tipus-habitatge != "alta densitat") and (estació = "Primavera" or estació = "Estiu") ) [relació-veins]
+    if voluntat-c-horaris = true [canvi-horaris]
+  ]
+  
+  ask habitatges with [voluntat-canvis = true and valors = "compromès"][
+    if recompte-setmanes >= 3 and member? 1 canvis-pràctiques [abandonament-de-pràctiques]
+    (ifelse
+      length filter [i -> i = 1] canvis-dispositius < 5 and length filter [i -> i = 1] canvis-pràctiques < 4 [
+        let acció random 1
+        if acció = 0 [canvi-de-dispositius]
+        if acció = 1 [canvi-de-pràctiques]
+      ]
+      length filter [i -> i = 1] canvis-dispositius = 5 [canvi-de-pràctiques]
+      length filter [i -> i = 1] canvis-pràctiques = 4 [canvi-de-dispositius]
+    )    
+  ]
+  
+  ask habitatges with [voluntat-canvis = true and valors = "ecologista"][
+    canvi-de-pràctiques
+  ]
+  
+end
+
+
+
+
+to canvi-de-dispositius
+  ;                     -----0-----------1------------2----------3---------4--------
+  ;                     ---dutxa-----rentaplats---rentadora----cadena-----pica------
+  ; consums estàndard       72          15           100         6         12       L/ús
+  
+  let dispositiu (list     0          1          2          3         4     )
+  let preus      (list  (1 / 20)   (1 / 300)  (1 / 500)  (1 / 40)  (1 / 3)  )
+  let combinat (map list dispositiu preus)
+  let acció first rnd:weighted-one-of-list combinat [ [p] -> last p ]
+  
+  while [item (acció) canvis-dispositius = 1][
+   set acció first rnd:weighted-one-of-list combinat [ [p] -> last p ] 
+  ]
+  
+  (ifelse
+    acció = 0 [set volum-consumit replace-item (acció) volum-consumit 36  ]
+    acció = 1 [if habitants < 1 and item acció us-setmanal > 1 [set us-setmanal replace-item (acció) us-setmanal (item acció us-setmanal - 1) ]]
+    acció = 2 [set volum-consumit replace-item (acció) volum-consumit 50  ]
+    acció = 3 [set volum-consumit replace-item (acció) volum-consumit 4.5 ]
+    acció = 4 [
+      if item (acció) volum-consumit = 12 [set volum-consumit replace-item (acció) volum-consumit 6]
+      if item (acció) volum-consumit = (12 * 0.90) [set volum-consumit replace-item (acció) volum-consumit (6 * 0.90)]
+    ]
+  )
+  set canvis-dispositius replace-item (acció) canvis-dispositius 1
+  set recompte-dispositius recompte-dispositius + 1
+  
+end
+
+
+
+to abandonament-de-pràctiques
+  let pràctiques-a-abandonar llista-pràctiques-ab canvis-pràctiques
+  let pràctica one-of pràctiques-a-abandonar
+  set canvis-pràctiques replace-item (pràctica) canvis-pràctiques 0
+end
+
+to-report llista-pràctiques-ab [llista]
+  let copia llista 
+
+  let llista-aux []
+  let aux 0
+  while [aux < length llista][
+    (ifelse
+      item 0 copia = 1 [set llista-aux lput aux llista-aux]
+      item 0 copia != 1 []
+    )
+    set copia remove-item 0 copia
+    set aux aux + 1
+  ]
+  report llista-aux
+end
+
+
+to canvi-de-pràctiques
+  ;                               ----0--------------1-------------2-----------3-------------4-------
+  ;                               ---dutxa-------rentaplats----rentadora----cadena(no)-----pica------
+  ; consums estàndard                 72            15           100           6             12          L/ús
+  ;usos setmanals estàndard           6           habitants    habitants       0              0          usos/setmana
+  ;usos diaris estàndard              0              0            0            6             10          usos/dia
+  
+  let pràctica              (list     0              1            2                           4     )
+  let acció one-of pràctica
+  
+  while [item (acció) canvis-pràctiques = 1][
+   set acció one-of pràctica
+  ]
+  
+  (ifelse
+    acció = 0 [set volum-consumit replace-item (acció) volum-consumit (item (acció) volum-consumit * 0.90)]
+    acció = 1 [if habitants < 1 [set us-setmanal replace-item (acció) us-setmanal (item acció us-setmanal - 1) ]]
+    acció = 2 [if habitants < 1 [set us-setmanal replace-item (acció) us-setmanal (item acció us-setmanal - 1) ]]
+    acció = 4 [
+      set volum-consumit replace-item (acció) volum-consumit (item (acció) volum-consumit * 0.90)
+      set us-setmanal replace-item (acció) us-diari 8
+    ]
+  )
+  set canvis-pràctiques replace-item (acció) canvis-pràctiques 1
+  set recompte-pràctiques recompte-pràctiques + 1
+  
+end
+
+to canvi-horaris
+  ;                        ---------0------------1----------------2-------------5------
+  ;                        -------dutxa------rentaplats-------rentadora-------jardí----
+  let horari              (list     0            1                2        )   ;5     )
+  let acció one-of horari
+  
+  while [item (acció) canvis-horaris = 1][
+   set acció one-of canvis-horaris
+  ]
+  
+  set canvis-horaris replace-item (acció) canvis-horaris 1
+  set recompte-horaris recompte-horaris + 1
+end
+
+
+to relació-veins
+  let veins count my-links
+  let hores-rec [hores-jardí] of link-neighbors
+  let rec-matinada length filter [x -> x = true] ( map [i -> i >= 2 and i < 7 ] hores-rec)
+  let rec-nocturn length filter [x -> x = true] ( map [i -> i >= 21 or i < 1 ] hores-rec)
+  
+  if rec-matinada / veins > 0.60 [set horari-rec "matinada"]
+  if rec-nocturn / veins > 0.60 [set horari-rec "nocturn"]
+  
+end
+
+
+
+
+
+

@@ -1,0 +1,349 @@
+extensions[]
+
+globals [
+  consum-global-horari
+  consum-global-diari
+  consum-Gh-RAlta
+  consum-GH-RMitja
+  consum-GH-RBaixa
+ 
+  consum-global-setmanal
+  consum-global
+  
+  ref-horaria
+  
+  facturació
+  
+  CGD-CL
+  CGD-TOPT
+  CGD-COMP
+  CGD-ECO
+]
+
+habitatges-own [
+  ;paràmetres interns
+  tipus-habitatge
+  habitants
+  tipus-renda
+  renda
+  valors
+  rec-jardi?
+  piscina-on?
+  piscina
+  
+  ;per als consums que duren >15'
+  distr-rentaplats
+  distr-rentadora
+  distr-jardí
+  
+  ;per al canvi de consums
+  consum-setmanal-propi
+  consum-setmanal-anterior
+  consum-mensual-propi
+  
+  ;tarifa discriminació horària
+  consum-punta
+  consum-plana
+  consum-vall
+  
+  ;tarifa per trams
+  tram-actual  
+]
+
+to actualitzar-referència-horària
+  set ref-horaria  time:get "hour" temps-actual + ( (time:get "minute" temps-actual) / 100)
+  ;print ref-horaria
+end
+
+to actualitzar-estació
+  (ifelse
+    time:is-between? temps-actual (time:create "2015/03/21 00:00") (time:create "2015/06/21 00:00")
+    [set estació "Primavera"]
+    time:is-between? temps-actual (time:create "2015/06/21 00:00") (time:create "2015/09/23 00:00")
+    [set estació "Estiu"]
+    time:is-between? temps-actual (time:create "2015/09/23 00:00") (time:create "2015/12/21 00:00")
+    [set estació "Tardor"]
+    time:is-between? temps-actual (time:create "2014/12/21 00:00") (time:create "2015/03/21 00:00") or time:is-between? temps-actual (time:create "2015/12/21 00:00") (time:create "2016/03/21 00:00")
+    [set estació "Hivern"]
+  )
+end
+
+to executar-consums
+  
+  us-dutxa? 
+  us-rentaplats?
+  us-rentadora?
+    
+  us-cisterna?
+  us-pica?
+  
+  us-jardi?
+  us-piscina?
+  
+end
+
+  
+
+to us-dutxa?
+  let index 0
+  ask habitatges[
+    if (habitants = 1) [
+      (ifelse
+        hora-dutxa = "avui_no" []
+        hora-dutxa != ref-horaria []
+        hora-dutxa = ref-horaria [
+        if (Tipus-de-tarifa = "Discriminació horària 1")[
+          (ifelse
+            ref-horaria >= (item 0 item 0 franja-vall) and ref-horaria < (item 1 item 0 franja-vall)   or   ref-horaria >= (item 0 item 1 franja-vall) and ref-horaria <= (item 1 item 1 franja-vall) [set consum-vall ( consum-vall + ( item index volum-consumit )) ]
+            ref-horaria >= (item 0 franja-plana) and ref-horaria < (item 1 franja-plana) [set consum-plana ( consum-plana + ( item index volum-consumit )) ]
+            ref-horaria >= (item 0 item 0 franja-punta) and ref-horaria < (item 1 item 0 franja-punta)   or   ref-horaria >= (item 0 item 1 franja-punta) and ref-horaria <= (item 1 item 1 franja-punta) [set consum-punta ( consum-punta + ( item index volum-consumit )) ]
+            )
+          ]
+          set consum-global-horari ( consum-global-horari + ( item index volum-consumit ) )
+          set consum-setmanal-propi ( consum-setmanal-propi + ( item index volum-consumit ) ) 
+        ]
+      )
+    ]
+    if (habitants > 1) [
+      foreach hora-dutxa [ hd ->
+        (ifelse
+          hd = "avui_no" []
+          hd != ref-horaria []
+          hd = ref-horaria [
+            if (Tipus-de-tarifa = "Discriminació horària 1")[
+              (ifelse
+                ref-horaria >= (item 0 item 0 franja-vall) and ref-horaria < (item 1 item 0 franja-vall)   or   ref-horaria >= (item 0 item 1 franja-vall) and ref-horaria <= (item 1 item 1 franja-vall) [set consum-vall ( consum-vall + ( item index volum-consumit )) ]
+                ref-horaria >= (item 0 franja-plana) and ref-horaria < (item 1 franja-plana) [set consum-plana ( consum-plana + ( item index volum-consumit )) ]
+                ref-horaria >= (item 0 item 0 franja-punta) and ref-horaria < (item 1 item 0 franja-punta)   or   ref-horaria >= (item 0 item 1 franja-punta) and ref-horaria <= (item 1 item 1 franja-punta) [set consum-punta ( consum-punta + ( item index volum-consumit )) ]
+              )
+            ]
+            set consum-global-horari ( consum-global-horari + ( item index volum-consumit ) )
+            set consum-setmanal-propi ( consum-setmanal-propi + ( item index volum-consumit ) )
+          ]
+        )
+      ]
+    ]
+  ] 
+end
+
+to us-rentaplats?
+  let index 1
+  ask habitatges[
+    (ifelse
+      hora-rentaplats = "avui no" []
+      hora-rentaplats != ref-horaria []
+      hora-rentaplats = ref-horaria [
+        set distr-rentaplats ( (item index durada-usos / 15) - 1)
+        if (Tipus-de-tarifa = "Discriminació horària 1")[
+          (ifelse
+            ref-horaria >= (item 0 item 0 franja-vall) and ref-horaria < (item 1 item 0 franja-vall)   or   ref-horaria >= (item 0 item 1 franja-vall) and ref-horaria <= (item 1 item 1 franja-vall) [set consum-vall ( consum-vall + ( item index volum-consumit / (item index durada-usos / 15))) ]
+            ref-horaria >= (item 0 franja-plana) and ref-horaria < (item 1 franja-plana) [set consum-plana ( consum-plana + ( item index volum-consumit / (item index durada-usos / 15))) ]
+            ref-horaria >= (item 0 item 0 franja-punta) and ref-horaria < (item 1 item 0 franja-punta)   or   ref-horaria >= (item 0 item 1 franja-punta) and ref-horaria <= (item 1 item 1 franja-punta) [set consum-punta ( consum-punta + ( item index volum-consumit / (item index durada-usos / 15))) ]
+          )
+        ]
+        set consum-global-horari ( consum-global-horari + ( item index volum-consumit / (item index durada-usos / 15)) )
+        set consum-setmanal-propi ( consum-setmanal-propi + ( item index volum-consumit / (item index durada-usos / 15)) )
+        ]
+    )
+  if (distr-rentaplats > 0 and hora-rentaplats != ref-horaria)[
+    if (Tipus-de-tarifa = "Discriminació horària 1")[
+        (ifelse
+          ref-horaria >= (item 0 item 0 franja-vall) and ref-horaria < (item 1 item 0 franja-vall)   or   ref-horaria >= (item 0 item 1 franja-vall) and ref-horaria <= (item 1 item 1 franja-vall) [set consum-vall ( consum-vall + ( item index volum-consumit / (item index durada-usos / 15))) ]
+          ref-horaria >= (item 0 franja-plana) and ref-horaria < (item 1 franja-plana) [set consum-plana ( consum-plana + ( item index volum-consumit / (item index durada-usos / 15))) ]
+          ref-horaria >= (item 0 item 0 franja-punta) and ref-horaria < (item 1 item 0 franja-punta)   or   ref-horaria >= (item 0 item 1 franja-punta) and ref-horaria <= (item 1 item 1 franja-punta) [set consum-punta ( consum-punta + ( item index volum-consumit / (item index durada-usos / 15))) ]
+        )
+          ]
+    set consum-global-horari ( consum-global-horari + ( item index volum-consumit / (item index durada-usos / 15)) )
+    set consum-setmanal-propi ( consum-setmanal-propi + ( item index volum-consumit / (item index durada-usos / 15)) )
+    set distr-rentaplats (distr-rentaplats - 1)
+   ]
+  ]
+end
+
+to us-rentadora?
+  let index 2
+  ask habitatges[
+    (ifelse
+      hora-rentadora = "avui no" []
+      hora-rentadora != ref-horaria []
+      hora-rentadora = ref-horaria [
+        set distr-rentadora ( (item index durada-usos / 15) - 1)
+         if (Tipus-de-tarifa = "Discriminació horària 1")[
+          (ifelse
+            ref-horaria >= (item 0 item 0 franja-vall) and ref-horaria < (item 1 item 0 franja-vall)   or   ref-horaria >= (item 0 item 1 franja-vall) and ref-horaria <= (item 1 item 1 franja-vall) [set consum-vall ( consum-vall + ( item index volum-consumit / (item index durada-usos / 15))) ]
+            ref-horaria >= (item 0 franja-plana) and ref-horaria < (item 1 franja-plana) [set consum-plana ( consum-plana + ( item index volum-consumit / (item index durada-usos / 15))) ]
+            ref-horaria >= (item 0 item 0 franja-punta) and ref-horaria < (item 1 item 0 franja-punta)   or   ref-horaria >= (item 0 item 1 franja-punta) and ref-horaria <= (item 1 item 1 franja-punta) [set consum-punta ( consum-punta + ( item index volum-consumit / (item index durada-usos / 15))) ]
+          )
+        ]
+        set consum-global-horari ( consum-global-horari + ( item index volum-consumit / (item index durada-usos / 15)) )
+        set consum-setmanal-propi ( consum-setmanal-propi + ( item index volum-consumit / (item index durada-usos / 15)) )
+      ]
+    )
+    if (distr-rentadora > 0 and hora-rentadora != ref-horaria)[
+      if (Tipus-de-tarifa = "Discriminació horària 1")[
+        (ifelse
+          ref-horaria >= (item 0 item 0 franja-vall) and ref-horaria < (item 1 item 0 franja-vall)   or   ref-horaria >= (item 0 item 1 franja-vall) and ref-horaria <= (item 1 item 1 franja-vall) [set consum-vall ( consum-vall + ( item index volum-consumit / (item index durada-usos / 15))) ]
+          ref-horaria >= (item 0 franja-plana) and ref-horaria < (item 1 franja-plana) [set consum-plana ( consum-plana + ( item index volum-consumit / (item index durada-usos / 15))) ]
+          ref-horaria >= (item 0 item 0 franja-punta) and ref-horaria < (item 1 item 0 franja-punta)   or   ref-horaria >= (item 0 item 1 franja-punta) and ref-horaria <= (item 1 item 1 franja-punta) [set consum-punta ( consum-punta + ( item index volum-consumit / (item index durada-usos / 15))) ]
+        )
+          ]
+      set consum-global-horari ( consum-global-horari + ( item index volum-consumit / (item index durada-usos / 15)) )
+      set consum-setmanal-propi ( consum-setmanal-propi + ( item index volum-consumit / (item index durada-usos / 15)) )
+      set distr-rentadora (distr-rentadora - 1)
+    ]
+  ]  
+end
+
+    
+to us-cisterna?
+  let index 3
+  ask habitatges[
+    (ifelse
+      member? ref-horaria cadenes-dia = false []
+      member? ref-horaria cadenes-dia = true [
+        if ( habitants = 1) [
+          if (Tipus-de-tarifa = "Discriminació horària 1")[
+          (ifelse
+            ref-horaria >= (item 0 item 0 franja-vall) and ref-horaria < (item 1 item 0 franja-vall)   or   ref-horaria >= (item 0 item 1 franja-vall) and ref-horaria <= (item 1 item 1 franja-vall) [set consum-vall ( consum-vall + ( item index volum-consumit )) ]
+            ref-horaria >= (item 0 franja-plana) and ref-horaria < (item 1 franja-plana) [set consum-plana ( consum-plana + ( item index volum-consumit )) ]
+            ref-horaria >= (item 0 item 0 franja-punta) and ref-horaria < (item 1 item 0 franja-punta)   or   ref-horaria >= (item 0 item 1 franja-punta) and ref-horaria <= (item 1 item 1 franja-punta) [set consum-punta ( consum-punta + ( item index volum-consumit )) ]
+          )
+          ]
+          set consum-global-horari ( consum-global-horari + ( item index volum-consumit ) )
+          set consum-setmanal-propi ( consum-setmanal-propi + ( item index volum-consumit ) )
+        ]
+        if ( habitants > 1) [
+          let repeticions length (filter [i -> i = ref-horaria] cadenes-dia)
+          if (Tipus-de-tarifa = "Discriminació horària 1")[
+          (ifelse
+            ref-horaria >= (item 0 item 0 franja-vall) and ref-horaria < (item 1 item 0 franja-vall)   or   ref-horaria >= (item 0 item 1 franja-vall) and ref-horaria <= (item 1 item 1 franja-vall) [set consum-vall ( consum-vall + ( item index volum-consumit )) ]
+            ref-horaria >= (item 0 franja-plana) and ref-horaria < (item 1 franja-plana) [set consum-plana ( consum-plana + ( item index volum-consumit )) ]
+            ref-horaria >= (item 0 item 0 franja-punta) and ref-horaria < (item 1 item 0 franja-punta)   or   ref-horaria >= (item 0 item 1 franja-punta) and ref-horaria <= (item 1 item 1 franja-punta) [set consum-punta ( consum-punta + ( item index volum-consumit )) ]
+          )
+          ]
+          set consum-global-horari ( consum-global-horari + ( (item index volum-consumit) * repeticions ) )
+          set consum-setmanal-propi ( consum-setmanal-propi + ( (item index volum-consumit) * repeticions ) )
+        ]
+      ]
+     )
+   ]
+end
+
+to us-pica?
+  let index 4
+  ask habitatges[
+    (ifelse
+      member? ref-horaria pica-dia = false []
+      member? ref-horaria pica-dia = true [
+        if ( habitants = 1 ) [
+          if (Tipus-de-tarifa = "Discriminació horària 1")[
+          (ifelse
+            ref-horaria >= (item 0 item 0 franja-vall) and ref-horaria < (item 1 item 0 franja-vall)   or   ref-horaria >= (item 0 item 1 franja-vall) and ref-horaria <= (item 1 item 1 franja-vall) [set consum-vall ( consum-vall + ( item index volum-consumit )) ]
+            ref-horaria >= (item 0 franja-plana) and ref-horaria < (item 1 franja-plana) [set consum-plana ( consum-plana + ( item index volum-consumit )) ]
+            ref-horaria >= (item 0 item 0 franja-punta) and ref-horaria < (item 1 item 0 franja-punta)   or   ref-horaria >= (item 0 item 1 franja-punta) and ref-horaria <= (item 1 item 1 franja-punta) [set consum-punta ( consum-punta + ( item index volum-consumit )) ]
+          )
+          ]
+          set consum-global-horari ( consum-global-horari + ( item index volum-consumit ) )
+          set consum-setmanal-propi ( consum-setmanal-propi + ( item index volum-consumit ) )
+          
+        ]
+        if ( habitants > 1 ) [
+          let repeticions length (filter [i -> i = ref-horaria] cadenes-dia)
+          if (Tipus-de-tarifa = "Discriminació horària 1")[
+          (ifelse
+            ref-horaria >= (item 0 item 0 franja-vall) and ref-horaria < (item 1 item 0 franja-vall)   or   ref-horaria >= (item 0 item 1 franja-vall) and ref-horaria <= (item 1 item 1 franja-vall) [set consum-vall ( consum-vall + ( item index volum-consumit )) ]
+            ref-horaria >= (item 0 franja-plana) and ref-horaria < (item 1 franja-plana) [set consum-plana ( consum-plana + ( item index volum-consumit )) ]
+            ref-horaria >= (item 0 item 0 franja-punta) and ref-horaria < (item 1 item 0 franja-punta)   or   ref-horaria >= (item 0 item 1 franja-punta) and ref-horaria <= (item 1 item 1 franja-punta) [set consum-punta ( consum-punta + ( item index volum-consumit )) ]
+          )
+          ]
+          set consum-global-horari ( consum-global-horari + ( (item index volum-consumit) * repeticions ) )
+          set consum-setmanal-propi ( consum-setmanal-propi + ( (item index volum-consumit) * repeticions ) )
+        ]
+      ]
+      )
+      ]
+end
+
+  
+to us-jardi?
+  if (estació = "Primavera" or estació = "Tardor") [
+    ask habitatges with [rec-jardi? = true] [fer-us-jardi]
+  ]
+    
+  if (estació = "Estiu") [
+    ask habitatges with [tipus-habitatge = "mitjana densitat" or tipus-habitatge = "baixa densitat"] [fer-us-jardi]
+  ]
+end
+
+to fer-us-jardi
+  
+  let index 5
+  (ifelse
+    hores-jardí != ref-horaria []
+    hores-jardí = ref-horaria [
+      set distr-jardí ( (item index durada-usos / 15) - 1)
+      if (Tipus-de-tarifa = "Discriminació horària 1")[
+          (ifelse
+            ref-horaria >= (item 0 item 0 franja-vall) and ref-horaria < (item 1 item 0 franja-vall)   or   ref-horaria >= (item 0 item 1 franja-vall) and ref-horaria <= (item 1 item 1 franja-vall) [set consum-vall ( consum-vall + ( item index volum-consumit / (item index durada-usos / 15))) ]
+            ref-horaria >= (item 0 franja-plana) and ref-horaria < (item 1 franja-plana) [set consum-plana ( consum-plana + ( item index volum-consumit / (item index durada-usos / 15))) ]
+            ref-horaria >= (item 0 item 0 franja-punta) and ref-horaria < (item 1 item 0 franja-punta)   or   ref-horaria >= (item 0 item 1 franja-punta) and ref-horaria <= (item 1 item 1 franja-punta) [set consum-punta ( consum-punta + ( item index volum-consumit / (item index durada-usos / 15))) ]
+          )
+        ]
+      set consum-global-horari ( consum-global-horari + ( item index volum-consumit / (item index durada-usos / 15)) )
+      set consum-setmanal-propi ( consum-setmanal-propi + ( item index volum-consumit / (item index durada-usos / 15)) )
+    ]
+  )
+  if (distr-jardí > 0 and hores-jardí != ref-horaria)[
+    if (Tipus-de-tarifa = "Discriminació horària 1")[
+      (ifelse
+          ref-horaria >= (item 0 item 0 franja-vall) and ref-horaria < (item 1 item 0 franja-vall)   or   ref-horaria >= (item 0 item 1 franja-vall) and ref-horaria <= (item 1 item 1 franja-vall) [set consum-vall ( consum-vall + ( item index volum-consumit / (item index durada-usos / 15))) ]
+          ref-horaria >= (item 0 franja-plana) and ref-horaria < (item 1 franja-plana) [set consum-plana ( consum-plana + ( item index volum-consumit / (item index durada-usos / 15))) ]
+          ref-horaria >= (item 0 item 0 franja-punta) and ref-horaria < (item 1 item 0 franja-punta)   or   ref-horaria >= (item 0 item 1 franja-punta) and ref-horaria <= (item 1 item 1 franja-punta) [set consum-punta ( consum-punta + ( item index volum-consumit / (item index durada-usos / 15))) ]
+        )
+    ]
+    set consum-global-horari ( consum-global-horari + ( item index volum-consumit / (item index durada-usos / 15)) ) 
+    set consum-setmanal-propi ( consum-setmanal-propi + ( item index volum-consumit / (item index durada-usos / 15)) )
+    set distr-jardí (distr-jardí - 1)
+  ]
+end
+
+to us-piscina?
+  if estació != "Hivern" [    
+    ask habitatges with [piscina-on? = true] [fer-us-piscina]
+  ]
+end
+
+to fer-us-piscina  
+  (ifelse
+    time:get "hour" temps-actual >= 0 and time:get "hour" temps-actual <= 5 [
+      set consum-vall  ( consum-vall + ( item 0 consums-piscina / 4 ) )
+      set consum-global-horari ( consum-global-horari + ( item 0 consums-piscina / 4 ) )
+      set consum-setmanal-propi ( consum-setmanal-propi + ( item 0 consums-piscina / 4 ) )
+    ]
+    time:get "hour" temps-actual >= 6 and time:get "hour" temps-actual <= 10 [ 
+      set consum-plana  ( consum-plana + ( item 1 consums-piscina / 4 ) )
+      set consum-global-horari ( consum-global-horari + ( item 1 consums-piscina / 4 ) )
+      set consum-setmanal-propi ( consum-setmanal-propi + ( item 1 consums-piscina / 4 ) )
+    ]
+    time:get "hour" temps-actual >= 11 and time:get "hour" temps-actual <= 18 [ 
+      set consum-plana  ( consum-plana + ( item 2 consums-piscina / 4 ) )
+      set consum-global-horari ( consum-global-horari + ( item 2 consums-piscina / 4 ) )
+      set consum-setmanal-propi ( consum-setmanal-propi + ( item 2 consums-piscina / 4 ) ) 
+    ]
+    time:get "hour" temps-actual >= 19 and time:get "hour" temps-actual < 21 [
+      set consum-plana  ( consum-plana + ( item 3 consums-piscina / 4 ) )
+      set consum-global-horari ( consum-global-horari + ( item 3 consums-piscina / 4 ) )
+      set consum-setmanal-propi ( consum-setmanal-propi + ( item 3 consums-piscina / 4 ) )
+    ]
+    time:get "hour" temps-actual >= 21 and time:get "hour" temps-actual < 22 [
+      set consum-plana  ( consum-plana + ( item 3 consums-piscina / 4 ) ) 
+      set consum-global-horari ( consum-global-horari + ( item 3 consums-piscina / 4 ) )
+      set consum-setmanal-propi ( consum-setmanal-propi + ( item 3 consums-piscina / 4 ) )
+    ]
+    time:get "hour" temps-actual >= 22 and time:get "hour" temps-actual <= 24 [
+      set consum-vall  ( consum-vall + ( item 3 consums-piscina / 4 ) ) 
+      set consum-global-horari ( consum-global-horari + ( item 4 consums-piscina / 4 ) )
+      set consum-setmanal-propi ( consum-setmanal-propi + ( item 4 consums-piscina / 4 ) )
+    ]
+  )
+end

@@ -1,0 +1,9 @@
+tariff,agent,density,members,income_type,income,behaviour,month,consumption (m3),bill,consumption_per_capita (m3),income_per_capita,practices_changed,devices_changed,mock,consumption
+Generic blocks,household 266,high density,1,low,807,commited,January,7.283,7.0,7.283,807.0,0.0,1.0,True,
+Generic blocks,household 80,low density,4,high,3811,client,December,17.514,19.33,4.3785,952.75,4.0,5.0,True,
+Generic blocks,household 319,high density,3,low,555,techno-solutionist,January,21.834,11.83,7.278,185.0,0.0,1.0,True,
+Generic blocks,household 506,high density,4,low,646,commited,December,16.542,8.71,4.1355,161.5,1.0,3.0,True,
+Generic blocks,household 305,high density,4,medium,1430,environmentalist,January,,17.59,,,,,True,28961.0
+Generic blocks,household 432,high density,4,medium,1088,commited,December,,9.27,,,,,True,17457.0
+Generic blocks,household 403,medium density,2,medium,1826,client,December,,6.31,,,,,True,6266.0
+Generic blocks,household 70,medium density,4,medium,962,techno-solutionist,January,,47.16,,,,,True,29462.0

@@ -1,0 +1,250 @@
+habitatges-own [
+  ;paràmetres interns
+  tipus-habitatge
+  habitants
+  tipus-renda
+  renda
+  valors
+  rec-jardi?
+  piscina-on?
+  piscina
+  
+  ;---llistes per al càlcul de consums---
+  volum-consumit
+  us-setmanal
+  us-diari
+  durada-usos
+  consums-piscina
+  
+  ;probabilitats setmanals
+  dutxes-setmana
+  rentaplats-setmana
+  rentadores-setmana
+ 
+  ;probabilitats diàries (en quins moments es duen a terme consums reiteratius durant el dia)
+  cadenes-dia
+  pica-dia
+  
+  ;probabilitats diàries (en quina hora es duu a terme un consum que en cas de fer-se només s'executa un cop al dia?)
+  hora-dutxa
+  hora-rentaplats
+  hora-rentadora
+  hores-jardí
+  
+  ;per als consums que duren >15'
+  distr-rentaplats
+  distr-rentadora
+  distr-jardí
+  
+  ;per al canvi de consums
+  consum-setmanal-propi
+  consum-setmanal-anterior
+  consum-mensual-propi
+  consum-acumulat
+  consum-diari
+  consum-mens-vall
+  consum-mens-plana
+  consum-mens-punta
+  consum-anual-propi
+  factura-anual
+  
+  ;disposició a canvis
+  voluntat-canvis
+  voluntat-c-horaris
+  situació-inelàstica
+  
+  ;tarifa discriminació horària
+  consum-punta
+  consum-plana
+  consum-vall
+  
+  ;tarifa per trams
+  tram-actual
+  
+  ;canvis de consum
+  canvis-dispositius
+  canvis-pràctiques
+  canvis-horaris
+  recompte-dispositius
+  recompte-pràctiques
+  recompte-horaris
+  
+  horari-rec
+  recompte-setmanes
+]
+
+
+to exportar-dades-horaries
+    
+  if (time:is-equal? temps-actual temps-inicial)[
+    let intervals temps-actual
+    let llista-int-temp []
+    while [time:is-equal? intervals (time:plus temps-actual 1 "day") = false][
+      set llista-int-temp lput ((time:show intervals "HH:mm")) llista-int-temp
+      set intervals time:plus intervals 15 "minutes"
+    ]
+    set llista-GENERAL-h               lput llista-int-temp      llista-GENERAL-h
+  ]
+  
+  if (time:is-before? temps-actual temps-final)[
+    
+    let Cons-H (precision (consum-global-horari / 1000) 2)
+    (ifelse 
+      time:show temps-actual "HH:mm" != "23:45" [
+        set llista-consums-horaris     lput Cons-H        llista-consums-horaris
+      ]
+      time:show temps-actual "HH:mm" = "23:45"[
+        set llista-consums-horaris    lput Cons-H                      llista-consums-horaris     
+        set llista-GENERAL-h          lput llista-consums-horaris      llista-GENERAL-h
+        set llista-consums-horaris []
+      ]
+    )
+  ]
+  
+  if (time:is-equal? temps-actual temps-final) [
+    csv:to-file (word "consumshoraris_" Tipus-de-tarifa "_" Número-de-simulació ".csv") llista-GENERAL-h
+  ]
+  
+end
+
+
+to exportar-dades-diàries
+  if (time:is-equal? temps-actual temps-inicial)[
+    let intervals temps-actual
+    let llista-int-temp []
+    while [time:is-equal? intervals temps-final = false][
+      set llista-int-temp lput (time:get "dayofyear" intervals) llista-int-temp
+      set intervals time:plus intervals 1 "day"
+    ]
+    set llista-GENERAL-d lput llista-int-temp llista-GENERAL-d 
+  ]
+  
+  if (time:is-before? temps-actual temps-final and consum-global-diari != 0)[
+      set llista-consums-diaris lput (consum-global-diari / 1000) llista-consums-diaris
+  ]
+  
+  if (time:is-equal? temps-actual temps-final)[
+    set llista-consums-diaris lput (consum-global-diari / 1000) llista-consums-diaris
+    set llista-GENERAL-d lput llista-consums-diaris llista-GENERAL-d
+    csv:to-file (word "consumsdiaris_" Tipus-de-tarifa "_" Número-de-simulació ".csv") llista-GENERAL-d
+  ]
+end
+
+to exportar-cdiaris-valors
+  
+  if (time:is-equal? temps-actual temps-inicial)[
+    let intervals temps-actual
+    let llista-int-temp []
+    set llista-int-temp lput "Dia de l'any" llista-int-temp
+    while [time:is-equal? intervals temps-final = false][
+      set llista-int-temp lput (time:get "dayofyear" intervals) llista-int-temp
+      set intervals time:plus intervals 1 "day"
+    ]
+    
+    set llista-GENERAL-d-valors lput llista-int-temp llista-GENERAL-d-valors
+    
+    ask habitatges [
+      
+      set consum-diari 0
+      set consum-acumulat 0
+      set llista-CD-CL ["client"]
+      set llista-CD-TOPT ["tecno-optimista"]
+      set llista-CD-COMP ["compromes"]
+      set llista-CD-ECO ["ecologista"]
+    ]
+  ]
+  
+  if (time:is-before? temps-actual temps-final and consum-global-diari != 0)[
+    
+    ask habitatges [set consum-diari (consum-setmanal-propi - consum-acumulat)]
+    
+    ask habitatges with [valors = "client"]           [set CGD-CL (consum-diari + CGD-CL)]
+    ask habitatges with [valors = "tecno-optimista"]  [set CGD-TOPT (consum-diari + CGD-TOPT)]
+    ask habitatges with [valors = "compromès"]        [set CGD-COMP (consum-diari + CGD-COMP)]
+    ask habitatges with [valors = "ecologista"]       [set CGD-ECO (consum-diari + CGD-ECO)]
+    
+    set llista-CD-CL lput (CGD-CL / 1000) llista-CD-CL
+    set llista-CD-TOPT lput (CGD-TOPT / 1000) llista-CD-TOPT
+    set llista-CD-COMP lput (CGD-COMP / 1000) llista-CD-COMP
+    set llista-CD-ECO lput (CGD-ECO / 1000) llista-CD-ECO
+    
+    set CGD-CL 0
+    set CGD-TOPT 0
+    set CGD-COMP 0
+    set CGD-ECO 0
+    
+    ask habitatges [
+      set consum-acumulat (consum-acumulat + consum-diari)
+      if (time:get "dayofweek" temps-actual = 1) [set consum-acumulat 0]
+    ]
+     
+  ]
+  
+  if (time:is-equal? temps-actual temps-final)[
+    
+    ask habitatges [set consum-diari (consum-setmanal-propi - consum-acumulat)]
+    
+    ask habitatges with [valors = "client"]           [set CGD-CL (consum-diari + CGD-CL)]
+    ask habitatges with [valors = "tecno-optimista"]  [set CGD-TOPT (consum-diari + CGD-TOPT)]
+    ask habitatges with [valors = "compromès"]        [set CGD-COMP (consum-diari + CGD-COMP)]
+    ask habitatges with [valors = "ecologista"]       [set CGD-ECO (consum-diari + CGD-ECO)]
+    
+    set llista-CD-CL lput (CGD-CL / 1000) llista-CD-CL
+    set llista-CD-TOPT lput (CGD-TOPT / 1000) llista-CD-TOPT
+    set llista-CD-COMP lput (CGD-COMP / 1000) llista-CD-COMP
+    set llista-CD-ECO lput (CGD-ECO / 1000) llista-CD-ECO
+    
+    set llista-GENERAL-d-valors lput llista-CD-CL llista-GENERAL-d-valors
+    set llista-GENERAL-d-valors lput llista-CD-TOPT llista-GENERAL-d-valors
+    set llista-GENERAL-d-valors lput llista-CD-COMP llista-GENERAL-d-valors
+    set llista-GENERAL-d-valors lput llista-CD-ECO llista-GENERAL-d-valors
+    csv:to-file (word "cdiaris_pervalors" Tipus-de-tarifa "_" Número-de-simulació ".csv") llista-GENERAL-d-valors
+  ]
+end
+
+to exportar-dades-adopció-mesures
+  
+  if (time:is-before? temps-actual temps-final)[
+    set llista-intervals lput (time:get "week" temps-actual) llista-intervals
+    
+    set ldisp-0 lput count habitatges with [item 0 canvis-dispositius = 1] ldisp-0
+    set ldisp-1 lput count habitatges with [item 1 canvis-dispositius = 1] ldisp-1
+    set ldisp-2 lput count habitatges with [item 2 canvis-dispositius = 1] ldisp-2
+    set ldisp-3 lput count habitatges with [item 3 canvis-dispositius = 1] ldisp-3
+    set ldisp-4 lput count habitatges with [item 4 canvis-dispositius = 1] ldisp-4
+    ;set llista-dispositius lput (list disp-0 disp-1 disp-2 disp-3 disp-4) llista-dispositius
+    
+    set lpract-0 lput count habitatges with [item 0 canvis-pràctiques = 1] lpract-0
+    set lpract-1 lput count habitatges with [habitants < 3 and item 1 canvis-pràctiques = 1] lpract-1
+    set lpract-2 lput count habitatges with [habitants < 3 and item 2 canvis-pràctiques = 1] lpract-2
+    set lpract-4 lput count habitatges with [item 4 canvis-pràctiques = 1] lpract-4
+    ;set llista-pràctiques lput (list pract-0 pract-1 pract-2 pract-4) llista-pràctiques
+  ]
+  
+  if (time:is-equal? temps-actual temps-final)[
+
+    set llista-GENERAL-m lput llista-intervals llista-GENERAL-m
+    
+    set llista-GENERAL-m lput ldisp-0 llista-GENERAL-m
+    set llista-GENERAL-m lput ldisp-1 llista-GENERAL-m
+    set llista-GENERAL-m lput ldisp-2 llista-GENERAL-m
+    set llista-GENERAL-m lput ldisp-3 llista-GENERAL-m
+    set llista-GENERAL-m lput ldisp-4 llista-GENERAL-m
+    
+    set llista-GENERAL-m lput lpract-0 llista-GENERAL-m
+    set llista-GENERAL-m lput lpract-1 llista-GENERAL-m
+    set llista-GENERAL-m lput lpract-2 llista-GENERAL-m
+    set llista-GENERAL-m lput lpract-4 llista-GENERAL-m
+    
+    set llista-GENERAL-m lput llista-pràctiques llista-GENERAL-m
+    csv:to-file (word "mesures_adoptades_" Tipus-de-tarifa "_" Número-de-simulació ".csv") llista-GENERAL-m
+  ]
+end
+
+to exportar-consum-mitjà-per-càpita
+  let resultat []
+  set resultat [ (list self tipus-renda valors factura-anual (precision (consum-anual-propi / 1000) 2) habitants (precision ((consum-anual-propi / 1000) / habitants) 2) (precision (factura-anual / habitants) 2) ) ] of habitatges
+  csv:to-file (word "Consum_Mitja_habitatges_per_capita_" Tipus-de-tarifa "_" Número-de-simulació ".csv") resultat
+end
+
+

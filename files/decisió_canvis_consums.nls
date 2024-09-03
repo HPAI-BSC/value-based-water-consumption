@@ -1,0 +1,116 @@
+extensions [csv]
+
+to-report provide-llindar [income] 
+  ; Original values: 0.005, 0.01, 0.015 ; Canviar amb els valors de l'Excel
+  ; Increased values: 0.01, 0.05, 0.075
+  ; Reduced values: 0.001, 0.005, 0.01
+  (ifelse
+    income <= 938 [report 0.005]; Wouldn't this just be tipus-renda = "Baixa"
+    income > 938 and income <= 2025 [report 0.01] ; tipus-renda = "Mitja"
+    [report 0.015] ; income > 2025 tipus-renda = "Alta"
+  )
+end
+
+to valorar-canvis
+  
+  ask habitatges with [valors = "client"][
+    let llindar (provide-llindar renda) ; cost sensitivity according to income
+    let quantitat-canvis (recompte-dispositius + recompte-pràctiques) ; how many changes have been performed (devices bought or practices modified)
+    if (Tipus-de-tarifa = "Discriminació horària 1" or Tipus-de-tarifa = "Per trams") [
+      let cost-actual (canon-aigua consum-mensual-propi)
+      (ifelse
+        Tipus-de-tarifa = "Discriminació horària 1" [set cost-actual cost-actual + (calcular-cost-discriminació consum-vall consum-plana consum-punta)] 
+        Tipus-de-tarifa = "Per trams" [set cost-actual cost-actual + (calcular-cost-discriminacio-per-trams consum-mensual-propi)]
+      )
+      let renda-habitatge (renda * habitants) ; household income
+      let fraccio-renda-consumida (cost-actual / renda-habitatge) ; what fraction of household income is spent to pay water
+      
+      set voluntat-canvis (fraccio-renda-consumida > llindar and quantitat-canvis < 6) ; we are spending too much and we have not implemented too many changes yet (modifying practices and buying devices)
+      set voluntat-c-horaris (fraccio-renda-consumida > llindar and quantitat-canvis >= 6 and recompte-horaris < 3) ; spending too much. Implemented way many times (modified practices and bought devices) but are willing to reschedule practices.  
+    ]
+
+    set situació-inelàstica (quantitat-canvis >= 6 and recompte-horaris >= 3)
+
+    (ifelse
+      voluntat-canvis [set recompte-setmanes recompte-setmanes + 1]
+      [set recompte-setmanes 0]
+    )
+  ]
+  
+  ask habitatges with [valors = "tecno-optimista"][
+    let llindar (provide-llindar renda); cost sensitivity according to income
+    let quantitat-canvis (recompte-dispositius + recompte-pràctiques) ; how many changes have been performed (devices bought or practices modified)
+    if (Tipus-de-tarifa = "Discriminació horària 1" or Tipus-de-tarifa = "Per trams") [
+      let cost-actual (canon-aigua consum-mensual-propi)
+      (ifelse
+        Tipus-de-tarifa = "Discriminació horària 1" [set cost-actual cost-actual + (calcular-cost-discriminació consum-vall consum-plana consum-punta)]
+        Tipus-de-tarifa = "Per trams" [set cost-actual cost-actual + (calcular-cost-discriminacio-per-trams consum-mensual-propi)]
+      )
+      let renda-habitatge (renda * habitants) ; household income
+      let fraccio-renda-consumida (cost-actual / renda-habitatge) ; what fraction of household income is spent to pay water
+      
+      if fraccio-renda-consumida > llindar [set voluntat-canvis true] ; spending too much, we have to make changes
+      if fraccio-renda-consumida <= llindar or recompte-dispositius >= 3  [set voluntat-canvis false] ; we are not either spending too much or we have already changed enough (devices)
+      if fraccio-renda-consumida > llindar and quantitat-canvis >= 6 and recompte-horaris < 3  [set voluntat-c-horaris true] ; we are spending too much, we have already changed enough (devices and practices) so we could try to reschedule
+      if recompte-horaris = 3 [set voluntat-c-horaris false] ; we have rescheduled things too many times
+      
+      ;set voluntat-canvis (fraccio-renda-consumida > llindar and recompte-dispositius < 3)
+      ;set voluntat-c-horaris (fraccio-renda-consumida > llindar and quantitat-canvis >= 6 and recompte-horaris < 3)
+      
+      
+    ]
+    set situació-inelàstica (quantitat-canvis >= 6 and recompte-horaris >= 3)
+  ]
+  
+  let CMSPH calcular-consum-mitjà-setmanal
+  
+  ask habitatges with [valors = "compromès"][
+    let quantitat-canvis (recompte-dispositius + recompte-pràctiques)
+    if ( (CMSPH * habitants) < consum-setmanal-propi and time:difference-between temps-inicial temps-actual "weeks" > 1) [set voluntat-canvis true]
+    if ( (CMSPH * habitants) >= consum-setmanal-propi and time:difference-between temps-inicial temps-actual "weeks" > 1 or quantitat-canvis >= 6 ) [set voluntat-canvis false]
+    
+    set situació-inelàstica (quantitat-canvis >= 6)
+    
+    (ifelse
+      voluntat-canvis = true [set recompte-setmanes recompte-setmanes + 1]
+      voluntat-canvis = false [set recompte-setmanes 0]
+    )
+  ]
+  ask habitatges with [valors = "ecologista"][
+    if ( (CMSPH * habitants) < consum-setmanal-propi and time:difference-between temps-inicial temps-actual "weeks" > 1) [set voluntat-canvis true]
+    if ( (CMSPH * habitants) >= consum-setmanal-propi and time:difference-between temps-inicial temps-actual "weeks" > 1 or recompte-pràctiques >= 3 ) [set voluntat-canvis false]
+    
+    set situació-inelàstica (recompte-pràctiques >= 3)
+  ]
+  
+  
+  
+  ;----- Genera un document amb les dades de facturació per trams projectada a partir d'una setmana per cada habitatge ------
+  ;let recompte-trams [ ]
+  ;set recompte-trams [ ( list self habitants consum-setmanal-propi calcular-cost-discriminació consum-vall consum-plana consum-punta canon-aigua consum-setmanal-propi ) ] of turtles
+  ;csv:to-file "facturació-projectada-trams.csv" recompte-trams
+  
+  ;----- Genera un document amb les dades de facturació per discriminació horària projectada a partir d'una setmana per cada habitatge ------
+  ;let recompte-discriminacio [ ]
+  ;set recompte-discriminacio [ ( list self habitants consum-setmanal-propi calcular-cost-trams consum-setmanal-propi canon-aigua consum-setmanal-propi ) ] of turtles
+  ;csv:to-file "facturació-projectada-discriminació.csv" recompte-discriminacio
+  
+end
+
+
+to-report calcular-consum-mitjà-setmanal
+  let avui time:get "dayofyear" temps-actual
+  let ind avui - 7
+  if ind < 0 [set ind 0]
+  let agregat 0
+  while [ind <= avui - 1][
+    set agregat (item 0 item ind consum-DP) + agregat
+    set ind (ind + 1)
+  ]
+  report agregat
+end
+
+
+
+
+

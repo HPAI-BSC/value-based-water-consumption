@@ -1,0 +1,368 @@
+
+globals [
+ estació
+ 
+ seed
+ temps-actual
+ temps-inicial
+ temps-final
+ t-aux-mes t-aux-setmana t-aux-dia  ;auxiliars de temps 
+  
+ consums-habitatges
+ 
+ 
+  ;---probabilitats setmanals---
+  dutxes-setmana
+  rentaplats-setmana
+  rentadores-setmana
+  
+  franja-punta
+  franja-plana
+  franja-vall
+  
+  preu-punta
+  preu-plana
+  preu-vall
+  
+  preu-tram-punta
+  preu-tram-base
+  preu-tram-vall
+  preu-escala
+  
+  consum-DP
+  
+]
+
+breed [habitatges habitatge]
+
+habitatges-own [
+  ;---paràmetres interns---
+  tipus-habitatge
+  habitants
+  tipus-renda
+  renda
+  valors
+  rec-jardi?
+  piscina-on?
+  piscina
+  
+  ;---llistes per al càlcul de consums---
+  volum-consumit
+  us-setmanal
+  us-diari
+  durada-usos
+  consums-piscina
+  
+  ;---per als consums que duren >15'---
+  distr-rentaplats
+  distr-rentadora
+  distr-jardí
+  
+  ;per al canvi de consums
+  consum-setmanal-propi
+  consum-setmanal-anterior
+  consum-mensual-propi
+  
+  consum-acumulat
+  consum-diari
+  
+  ;tarifa discriminació horària
+  consum-punta
+  consum-plana
+  consum-vall
+  
+  ;tarifa per trams
+  tram-actual
+  
+  ;canvis de consum
+  canvis-dispositius
+  canvis-pràctiques
+  canvis-horaris
+  recompte-dispositius
+  recompte-pràctiques
+  recompte-horaris
+  recompte-setmanes
+]
+
+to generar-mostra
+ create-habitatges 526
+ ;---mètode alternatiu per generar la xarxa---
+ ;nw:generate-watts-strogatz habitatges links 526 5 0.1    ask links [hide-link]
+ ask habitatges [
+    set shape "house"
+    setxy (random-xcor * 0.95) (random-ycor * 0.95)
+  ]  
+end
+
+to distribuir-tipus-habitatges
+  ;---------------------------------------------------
+  ;distribució dels tipus d'habitatge entre els agents
+  ;---------------------------------------------------
+  
+  ask n-of (count habitatges * 0.52) habitatges  [
+    set tipus-habitatge "alta densitat"
+    set size 0.8
+  ]
+  ask n-of round (count habitatges * 0.30) habitatges with [tipus-habitatge != "alta densitat"] [
+    set tipus-habitatge "mitjana densitat"
+    set size 1.2
+    set rec-jardi? false
+ 
+  ]
+  ask n-of round (count habitatges * 0.18) habitatges with [tipus-habitatge != "alta densitat" and tipus-habitatge != "mitjana densitat"] [
+    set tipus-habitatge "baixa densitat"
+    set size 1.5
+    set rec-jardi? false
+  ]
+  ask n-of (0.5 * count habitatges with [tipus-habitatge = "baixa densitat"]) habitatges [
+    set piscina true
+    set piscina-on? false
+    
+  ]
+  
+end
+
+to distribuir-qtat-habitants
+  ;-------------------------------------------
+  ;distribució dels habitants entre els agents
+  ;-------------------------------------------
+  ask n-of (count habitatges * 0.30) habitatges
+   [set habitants 1]
+  ask n-of round ( count habitatges * 0.29) habitatges with [habitants != 1 ]
+   [set habitants 2]
+  ask n-of round (count habitatges * 0.22) habitatges with [habitants != 1 and habitants != 2 ]
+   [set habitants 3]
+  ask n-of round (count habitatges * 0.19) habitatges with [habitants != 1 and habitants != 2 and habitants != 3 ]
+   [set habitants 4]
+end
+
+to distribuir-renda
+  ;-----------------------------------------
+  ;distribució de la renda entre els agents
+  ;-----------------------------------------
+
+  while [(0.204 * count habitatges) > count habitatges with [tipus-renda = "baixa"]] [
+    ask one-of habitatges with [tipus-habitatge = "alta densitat"]
+    [
+      set tipus-renda "baixa"
+      set renda 100 + random (938 - 100)
+    ]
+  ]
+
+   while [(0.167 * count habitatges) > count habitatges with [tipus-renda = "alta"]] [
+    ask one-of habitatges with [tipus-habitatge = "baixa densitat"]
+    [
+      set tipus-renda "alta"
+      set renda 2052 + random (5000 - 2052)
+    ]
+  ]
+
+  ask habitatges with [tipus-habitatge = "mitjana densitat" or renda = 0 ]
+  [
+    set tipus-renda "mitja"
+    (ifelse
+      tipus-habitatge = "alta densitat"
+      [set renda 938 + random ((2025 - 938) / 2)]
+      tipus-habitatge = "baixa densitat"
+      [set renda (938 + (2025 - 938) / 2) + random ((2025 - 938) / 2)]
+      
+      [set renda 938 + random (2052 - 938)]
+    )
+  ]
+end
+
+to distribuir-valors
+;-----------------------------------------
+  ;distribució de la renda entre els agents
+;-----------------------------------------
+ ask n-of (0.25 * count habitatges) habitatges [
+  set valors "client"
+  set color blue
+  ]
+  ask n-of (0.25 * count habitatges) habitatges with [valors = 0][
+  set valors "tecno-optimista"
+  set color orange
+  ]
+ ask n-of (0.25 * count habitatges) habitatges with [valors = 0][
+  set valors "compromès"
+  set color red
+  ]
+ ask n-of (0.25 * count habitatges) habitatges with [valors = 0][
+  set valors "ecologista"
+  set color green
+  ]
+  if any? habitatges with [valors = 0][
+    while [any? habitatges with [valors = 0]][
+      ask one-of habitatges with [valors = 0][
+        set valors one-of ["client" "tecno-optimista" "compromès" "ecologista"]
+        (ifelse
+          valors = "client" [set color blue]
+          valors = "tecno-optimista" [set color orange]
+          valors = "compromès" [set color red]
+          valors = "ecologista" [set color green]
+          )
+      ]
+    ]
+  ]
+end
+
+to afegir-urbanització
+  create-habitatges 20 
+  [
+    set shape "house"
+    setxy (random-xcor * 0.95) (random-ycor * 0.95)
+    set tipus-habitatge "mitjana densitat"
+    set size 1.2
+    set rec-jardi? false
+    set habitants one-of [1 2 3 4]
+    set tipus-renda "mitja"
+    set renda 938 + random (2052 - 938)
+    set valors "tecno-optimista"
+    set color orange
+  ]
+end
+
+to definir-xarxa-social
+  
+  ask habitatges with [tipus-habitatge = "alta densitat"] [
+    let lonely habitatges with [ tipus-habitatge = "alta densitat" and count my-links < 8 ]
+    set lonely other lonely
+    let new-links 8 - count my-links
+    if new-links > 0 [
+      let chosen n-of min (list new-links count lonely) lonely
+      create-links-with chosen ;[ hide-link ]
+      ask chosen [ if count my-links = 8 [ set lonely other lonely ] ]
+    ]
+   ]
+  
+  ask habitatges with [tipus-habitatge = "mitjana densitat"] [
+    let lonely habitatges with [ tipus-habitatge = "mitjana densitat" and count my-links < 6 ]
+    set lonely other lonely
+    let new-links 6 - count my-links
+    if new-links > 0 [
+      let chosen n-of min (list new-links count lonely) lonely
+      create-links-with chosen ;[ hide-link ]
+      ask chosen [ if count my-links = 6 [ set lonely other lonely ] ]
+    ]
+   ]
+  
+  ask habitatges with [tipus-habitatge = "baixa densitat"] [
+    let lonely habitatges with [ tipus-habitatge = "baixa densitat" and count my-links < 4 ]
+    set lonely other lonely
+    let new-links 4 - count my-links
+    if new-links > 0 [
+      let chosen n-of min (list new-links count lonely) lonely
+      create-links-with chosen ;[ hide-link ]
+      ask chosen [ if count my-links = 4 [ set lonely other lonely ] ]
+    ]
+   ]
+  
+  ask links [hide-link]
+  
+end
+
+to inicialitzar-comptadors-aux-temps
+  
+  set temps-inicial time:create "2015/01/01 00:00"
+  set temps-actual time:anchor-to-ticks temps-inicial 15 "minutes"
+  set temps-final time:create "2016/01/01 00:00" 
+  
+  set t-aux-mes time:plus temps-actual 1 "month"
+  
+  set t-aux-setmana time:plus temps-actual ( 1 + (7 - (time:get "dayofweek" temps-actual))) "day"
+  
+  set t-aux-dia  time:plus temps-actual 24 "hour"
+end
+
+to carregar-dades-consum
+  set consum-DP csv:from-file "files/consumdiariperhabitant.csv"
+end
+
+to definir-tarifa
+  if (Tipus-de-tarifa = "Cap (no condicionat)" or Tipus-de-tarifa = "Per trams") [
+      set franja-punta "-"
+      set franja-plana "-"
+      set franja-vall "-"
+      set preu-punta "-"
+      set preu-plana "-"
+      set preu-vall "-"
+    ]
+    
+  if (Tipus-de-tarifa = "Discriminació horària 1") [
+    set preu-punta precision (0.575 * 0.735) 3
+    set preu-plana precision (0.387 * 0.735) 3
+    set preu-vall precision (0.299 * 0.735) 3
+    
+    set franja-punta [[6 11][21 22]]
+    set franja-plana [11 21]
+    set franja-vall  [[0 6][22 24]]
+  ]
+  
+  if (Tipus-de-tarifa = "Per trams") [
+    set preu-tram-punta precision (0.575 * 0.735) 3
+    set preu-tram-base precision (0.387 * 0.735) 3
+    set preu-tram-vall precision (0.299 * 0.735) 3
+
+    ; [[limit-superior preu-renda-baixa preu-renda-mitja preu-renda-alta]]
+    ; Durban, South Africa
+    set preu-escala (list (list 6 0 preu-tram-base preu-tram-base)
+                          (list 30 preu-tram-base preu-tram-base preu-tram-base)
+                          (list 9999 preu-tram-punta preu-tram-punta preu-tram-punta))    
+
+    ; Dakar, Senegal
+    set preu-escala (list (list 20 preu-tram-base preu-tram-base preu-tram-base)
+                          (list 40 preu-tram-punta preu-tram-punta preu-tram-punta)
+                          (list 9999 (preu-tram-punta + preu-tram-vall) (preu-tram-punta + preu-tram-vall) (preu-tram-punta + preu-tram-vall)))
+
+    ; Bangalore, India
+    set preu-escala (list (list 50 (preu-tram-vall / 2) (preu-tram-vall / 2) (preu-tram-vall / 2))
+                          (list 100 preu-tram-base preu-tram-base preu-tram-base)
+                          (list 150 (preu-tram-base * 1.3) (preu-tram-base * 1.3) (preu-tram-base * 1.3))
+                          (list 200 (preu-tram-base * 1.7) (preu-tram-base * 1.7) (preu-tram-base * 1.7))
+                          (list 9999  (preu-tram-base * 2) (preu-tram-base * 2) (preu-tram-base * 2)))
+
+    ; Nairobi, Kenya
+    set preu-escala (list (list 30 preu-tram-vall preu-tram-vall preu-tram-vall)
+                          (list 50 preu-tram-base preu-tram-base preu-tram-base)
+                          (list 9999 (preu-tram-base * 1.3) (preu-tram-base * 1.3) (preu-tram-base * 1.3)))
+    
+  ]
+end
+
+to definir-consums
+  ask habitatges [
+  
+  ;                       ---------0--------------1--------------------2----------------3---------4-----------5---------6-------
+  ;                       -------dutxa--------rentaplats-----------rentadora----------cadena-----pica-------jardí-----picina----
+  
+    set volum-consumit    [       72              15                  100               6         12         60    ]; L/ús
+    
+    if (tipus-habitatge = "baixa densitat") [ set volum-consumit replace-item 5 volum-consumit 200]
+
+    set us-setmanal       (list    6           habitants            habitants           0          0          0    ); usos/setmana
+    set us-diari          [        0              0                    0                6         10          1    ]; usos/dia
+  
+    set durada-usos       [        6             120                   60               3        0.5        120    ]; en minuts
+  
+  
+  ;------franjes consums-piscina-------------(      0 a 5     6 a 10     11 a 18     19 a 21     22 a 23 )
+    if (piscina = true) [set consums-piscina (list   3.2       6.5         9.7         6.5         3.2   ) ]
+  ]
+end
+
+to inicialitzar-canvis
+  ask habitatges [    
+    set canvis-dispositius [ 0 0 0 0 0 ]
+    set canvis-pràctiques  [ 0 0 0 0 0 ]
+    set canvis-horaris     [ 0 0 0 ]
+    
+    set recompte-dispositius 0
+    set recompte-pràctiques 0
+    set recompte-horaris 0
+  ]
+end
+
+
+
+
+

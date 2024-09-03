@@ -1,0 +1,33 @@
+globals [
+  aux-cgd
+]
+
+
+to generar-gràfics-grans
+  
+  set-current-plot "Consum estacional"
+  set-plot-background-color black
+  set-plot-x-range (1) (365)
+  set-current-plot-pen "m3/dia" plotxy (time:get "dayofyear" temps-actual) ( consum-global-diari / 1000)
+  set-plot-pen-color blue
+
+end
+
+
+to generar-gràfics-petits
+  
+  set-current-plot "Consum setmanal"
+  set-plot-background-color black
+  set-current-plot-pen "m3/dia" plot ( consum-global-horari / 1000)
+  set-plot-pen-color blue
+  if (time:get "dayofweek" temps-actual = 7 and ( read-from-string (time:show temps-actual "HH.mm") ) = 23.45 ) [plot-pen-reset]
+  
+  set-current-plot "Consum diari"
+  set-plot-background-color black
+  set-plot-x-range 0 24
+  let hora read-from-string (time:show temps-actual "HH.mm")
+  set-current-plot-pen "m3/h" plotxy hora ( consum-global-horari / 1000)
+  set-plot-pen-color blue
+  if (time:get "hour" temps-actual = 0) [plot-pen-reset]
+  
+end

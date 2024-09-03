@@ -1,0 +1,266 @@
+
+to-report calcular-cost-trams [volum] ; tarifa HIULS per trams
+  
+  ;let setmanes floor (time:difference-between (temps-actual) (time:plus temps-actual 4 "month") "weeks")
+  ;let proj-consum floor (volum * setmanes / 1000 )
+  let proj-consum floor (volum  / 1000 )
+  
+  let quota-fixa 3.17
+  let lloguer-comptador 3.50
+  
+  let minim 4.78
+  
+  let tram-1 0
+  let tram-2 0
+  let tram-3 0
+
+  (ifelse
+    (proj-consum - 16) <= 0 []
+    (proj-consum - 16) > 0  [set tram-1 (16)
+                             set minim 0
+      
+    
+    (ifelse
+      (proj-consum - 16) - (60 - 16) <= (60 - 16) [set tram-2 (proj-consum - 16)]
+      (proj-consum - 16) - (60 - 16) >  (60 - 16) [set tram-2 (60 - 16)
+                                                   set tram-3 (proj-consum - 16) - (60 - 16)
+        ]
+      )
+    ]  
+  )  
+  
+  ;let part-HIULS (quota-fixa * 4 + minim * 0.299 + tram-1 * 0.299 + tram-2 * 0.387 + tram-3 * 0.575) * 1.10 + lloguer-comptador * 1.21
+  let part-HIULS (quota-fixa + minim * 0.299 + tram-1 * 0.299 + tram-2 * 0.387 + tram-3 * 0.575) * 1.10 + lloguer-comptador * 1.21
+  
+  report precision part-HIULS 2
+  
+end
+
+
+
+to-report calcular-cost-discriminació [volum-vall volum-plana volum-punta]
+  
+;  let setmanes floor (time:difference-between (temps-actual) (time:plus temps-actual 4 "month") "weeks")
+;  let proj-vall  floor (volum-vall  * setmanes / 1000 )
+;  let proj-plana floor (volum-plana * setmanes / 1000 )
+;  let proj-punta floor (volum-punta * setmanes / 1000 )
+  let proj-vall  floor (volum-vall  / 1000 )
+  let proj-plana floor (volum-plana / 1000 )
+  let proj-punta floor (volum-punta / 1000 )
+  
+  let quota-fixa 3.17
+  let lloguer-comptador 3.50
+  
+  let minim 4.78
+  
+  let part-discriminacio (proj-vall * preu-vall + proj-plana * preu-plana + proj-punta * preu-punta) * 1.10 + lloguer-comptador * 1.21
+  
+  report precision part-discriminacio 2
+  
+end
+
+to-report calcular-cost-discriminacio-per-trams [volum]
+  ;let setmanes floor (time:difference-between (temps-actual) (time:plus temps-actual 4 "month") "weeks")
+  ;let proj  floor (volum * setmanes / 1000)
+  let proj floor (volum / 1000)
+  
+  let quota-fixa 3.17
+  let lloguer-comptador 3.50
+  
+  let minim 4.78
+  
+  let cost-total 0
+  let remanent proj
+  let i 0
+  while [i < length preu-escala and remanent > 0] [
+    let preu-tram 0
+    (ifelse
+      tipus-renda = "baixa" [ set preu-tram item 1 (item i preu-escala) ]
+      tipus-renda = "mitja" [ set preu-tram item 2 (item i preu-escala) ]
+      tipus-renda = "alta"  [ set preu-tram item 3 (item i preu-escala) ])
+    let volum-tram min (list (item 0 (item i preu-escala)) remanent)
+    set cost-total (cost-total + preu-tram * volum-tram)
+    set remanent (remanent - item 0 (item i preu-escala))
+    set i (i + 1)
+  ]
+
+  let part-discriminacio cost-total * 1.10 + lloguer-comptador * 1.21
+  
+  report precision part-discriminacio 2
+end
+
+to-report canon-aigua [volum]
+  
+  ;let setmanes floor (time:difference-between (temps-actual) (time:plus temps-actual 4 "month") "weeks")
+  ;let proj-consum precision ( floor ( (volum * setmanes) / 4) / 1000 ) 1 ; Treure el / 4 per pasar a mes i treure setmanes
+  let proj-consum precision (floor (volum / 1000)) 1
+    
+  let minim 6
+  let tram-1 0
+  let tram-2 0
+  let tram-3 0
+  let tram-4 0
+  
+  let n 0; ajuda a definir la tarifa en f(habitants) per habitatges de fins a 3 persones, el seu valor serà sempre 3
+  
+  if (habitants <= 3)[set n 3]
+  if (habitants >= 4)[set n habitants]
+  
+  (ifelse
+    (proj-consum - 6) <= 0  []
+    (proj-consum - 6) >  0  [ set minim 0
+      
+      (ifelse
+        (proj-consum - 3 * n) <= 0 [set tram-1 (proj-consum)]
+        (proj-consum - 3 * n) >  0 [set tram-1 ( 3 * n )
+    
+          (ifelse
+            (proj-consum - 3 * n) - (5 * n - (3 * n + 1)) <= (5 * n - (3 * n + 1)) [set tram-2 (proj-consum - 3 * n)]
+            (proj-consum - 3 * n) - (5 * n - (3 * n + 1)) >  (5 * n - (3 * n + 1)) [set tram-2 (5 * n - (3 * n + 1))
+          
+              (ifelse
+                ((proj-consum - 3 * n) - (5 * n - (3 * n + 1))) - (6 * n - (5 * n + 1)) <= (6 * n - (5 * n + 1)) [set tram-3 ((proj-consum - 3 * n) - (5 * n - (3 * n + 1))) ]
+                ((proj-consum - 3 * n) - (5 * n - (3 * n + 1))) - (6 * n - (5 * n + 1)) >  (6 * n - (5 * n + 1)) [set tram-3 (6 * n - (6 *  n + 1))
+                                                                                                                  set tram-4 ((proj-consum - 9) - (5 * n - (3 * n + 1))) - (6 * n - (5 * n + 1))
+                ]
+              )
+            ]
+          )
+        ]  
+      )
+    ]
+  ) 
+      
+  ;let part-canon 4 * (minim * 0.4936 + tram-1 * 0.4936 + tram-2 * 1.137 + tram-3 * 2.8425 + tram-4 * 4.548) * 1.10 ; cal *4???
+  let part-canon (minim * 0.4936 + tram-1 * 0.4936 + tram-2 * 1.137 + tram-3 * 2.8425 + tram-4 * 4.548) * 1.10 ; cal *4???
+  
+  report precision part-canon 2
+  
+end
+
+
+to calcular-facturació
+  print "calcular-facturacio"
+  
+  ;let consum-habitatge precision ( floor (consum-mensual-propi / 1000) / 4) 1
+  let consum-habitatge precision ( floor (consum-mensual-propi / 1000)) 1
+  
+  let minim 6
+  let tram-1 0
+  let tram-2 0
+  let tram-3 0
+  let tram-4 0
+  
+  let n 0; ajuda a definir la tarifa en f(habitants) per habitatges de fins a 3 persones, el seu valor serà sempre 3
+  
+  if (habitants <= 3)[set n 3]
+  if (habitants >= 4)[set n habitants]
+  
+  (ifelse
+    (consum-habitatge - 6) <= 0  []
+    (consum-habitatge - 6) >  0  [ set minim 0
+      
+      (ifelse
+        (consum-habitatge - 3 * n) <= 0 [set tram-1 (consum-habitatge)]
+        (consum-habitatge - 3 * n) >  0 [set tram-1 ( 3 * n )
+    
+          (ifelse
+            (consum-habitatge - 3 * n) - (5 * n - (3 * n + 1)) <= (5 * n - (3 * n + 1)) [set tram-2 (consum-habitatge - 3 * n)]
+            (consum-habitatge - 3 * n) - (5 * n - (3 * n + 1)) >  (5 * n - (3 * n + 1)) [set tram-2 (5 * n - (3 * n + 1))
+          
+              (ifelse
+                ((consum-habitatge - 3 * n) - (5 * n - (3 * n + 1))) - (6 * n - (5 * n + 1)) <= (6 * n - (5 * n + 1)) [set tram-3 ((consum-habitatge - 3 * n) - (5 * n - (3 * n + 1))) ]
+                ((consum-habitatge - 3 * n) - (5 * n - (3 * n + 1))) - (6 * n - (5 * n + 1)) >  (6 * n - (5 * n + 1)) [set tram-3 (6 * n - (6 *  n + 1))
+                                                                                                                       set tram-4 ((consum-habitatge - 9) - (5 * n - (3 * n + 1))) - (6 * n - (5 * n + 1))
+                ]
+              )
+            ]
+          )
+        ]  
+      )
+    ]
+  ) 
+      
+  ;let part-canon 4 * (minim * 0.4936 + tram-1 * 0.4936 + tram-2 * 1.137 + tram-3 * 2.8425 + tram-4 * 4.548) * 1.10 ; cal *4???
+  let part-canon (minim * 0.4936 + tram-1 * 0.4936 + tram-2 * 1.137 + tram-3 * 2.8425 + tram-4 * 4.548) * 1.10 ; cal *4???
+  
+  set factura-anual (precision part-canon 2) + factura-anual
+  
+  
+  if (Tipus-de-tarifa = "Cap (no condicionat)")[
+    
+    let cons-hab floor (consum-mensual-propi / 1000)
+    
+    let quota-fixa 3.17
+    let lloguer-comptador 3.50
+    
+    let minim-2 4.78
+    
+    let tram-1b 0
+    let tram-2b 0
+    let tram-3b 0
+    
+    (ifelse
+      (cons-hab - 16) <= 0 []
+      (cons-hab - 16) > 0  [set tram-1b (16)
+                            set minim 0
+        
+        (ifelse
+          (cons-hab - 16) - (60 - 16) <= (60 - 16) [set tram-2b (cons-hab - 16)]
+          (cons-hab - 16) - (60 - 16) >  (60 - 16) [set tram-2b (60 - 16)
+                                                    set tram-3b (cons-hab - 16) - (60 - 16)
+          ]
+        )
+      ]  
+    )  
+    
+    ;let part-HIULS (quota-fixa * 4 + minim * 0.299 + tram-1b * 0.299 + tram-2b * 0.387 + tram-3b * 0.575) * 1.10 + lloguer-comptador * 1.21
+    let part-HIULS (quota-fixa + minim * 0.299 + tram-1b * 0.299 + tram-2b * 0.387 + tram-3b * 0.575) * 1.10 + lloguer-comptador * 1.21
+    
+    set facturació precision (facturació + part-HIULS) 2
+    set factura-anual (precision part-HIULS 2) + factura-anual
+  ]
+  
+  if (Tipus-de-tarifa = "Discriminació horària 1")[
+  
+    let fracc-vall  floor (consum-mens-vall / 1000 )
+    let fracc-plana floor (consum-mens-plana / 1000 )
+    let fracc-punta floor (consum-mens-punta / 1000 )
+    
+    let quota-fixa 3.17
+    let lloguer-comptador 3.50
+    
+    ;let part-HIULS (quota-fixa * 4 + fracc-vall * preu-vall + fracc-plana * preu-plana + fracc-punta * preu-punta) * 1.10 + lloguer-comptador * 1.21
+    let part-HIULS (quota-fixa + fracc-vall * preu-vall + fracc-plana * preu-plana + fracc-punta * preu-punta) * 1.10 + lloguer-comptador * 1.21
+    
+    set facturació precision (facturació + part-HIULS) 2
+    set factura-anual (precision part-HIULS 2) + factura-anual
+  ]
+  
+  if (Tipus-de-tarifa = "Per trams") [
+    let cost-total 0
+    let remanent consum-mensual-propi
+    let i 0
+    while [i < length preu-escala and remanent > 0] [
+      let preu-tram 0
+      (ifelse
+        tipus-renda = "baixa" [ set preu-tram item 0 (item i preu-escala) ]
+        tipus-renda = "mitja" [ set preu-tram item 1 (item i preu-escala) ]
+        tipus-renda = "alta"  [ set preu-tram item 2 (item i preu-escala) ])
+      let volum-tram min (list (item 0 (item i preu-escala)) remanent)
+      set cost-total (cost-total + preu-tram * volum-tram)
+      set remanent (remanent - item 0 (item i preu-escala))
+      set i (i + 1)
+    ]
+
+    let quota-fixa 3.17
+    let lloguer-comptador 3.50
+    
+    ;let part-HIULS (quota-fixa * 4 + cost-total) * 1.10 + lloguer-comptador * 1.21
+    let part-HIULS (quota-fixa + cost-total) * 1.10 + lloguer-comptador * 1.21
+    
+    set facturació precision (facturació + part-HIULS) 2
+    set factura-anual (precision part-HIULS 2) + factura-anual
+  ]
+  
+end
