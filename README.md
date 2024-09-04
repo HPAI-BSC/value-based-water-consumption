@@ -8,8 +8,7 @@ An exploratory exercise of values and preferences was carried out which would gu
 	- Adding value preferences and contexts show more realistic results as one would expect
 	- Given our grounding in the Schwartz’s circumflex model of values and a value preference, some value orders are more prone to shift than others, that is, they are more flexible in terms of changing their preferences
 These outputs are intended to guide the subsequent formalization and architecture design which is the goal of the micro project.
-The code of the ABM can be found in this repository: https://github.com/HPAI-BSC/value-based-water-consumption/
-The paper can be cited as: Oliva-Felipe, L., Lobo, I., McKinlay, J., Dignum, F., De Vos, M., Cortés, U., Cortés, A. (2024). Context Matters: Contextual Value-Based Deliberation in Water Consumption Scenarios. In: XXX, Y., et al. Artificial Intelligence. ECAI 2024 International Workshops. ECAI 2024. Communications in Computer and Information Science, vol XXXX. Springer, Cham. https://doi.org/XXXX/YYYYY (accepted, to be printed)
+
 
 ## How to run:
  
